@@ -2,6 +2,10 @@
 
 Draw a polygon on a map, search for places within it, build a list, and export to CSV.
 
+**Live demo:** https://mapthing.vercel.app
+
+<img src="screenshot1.webp" width="720" />
+
 ## What It Does
 
 1. **Draw a polygon** on Google Maps to define a search area
