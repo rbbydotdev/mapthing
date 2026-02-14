@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createRoot } from "react-dom/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 import "./styles.css";
 
 interface PlaceResult {
@@ -33,7 +36,6 @@ function App() {
   const locationInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   // List item DOM refs for scroll-to behavior
-  const listItemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const [apiKey, setApiKey] = useState<string>("");
   const [isLoaded, setIsLoaded] = useState(false);
@@ -43,7 +45,6 @@ function App() {
   const [places, setPlaces] = useState<PlaceResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [statusMessage, setStatusMessage] = useState("Draw a polygon on the map to define your search area");
-  const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
 
   // Fetch API key from server
   useEffect(() => {
@@ -159,17 +160,13 @@ function App() {
       marker.setMap(null);
       markersRef.current.delete(id);
     }
-    listItemRefs.current.delete(id);
     setPlaces((prev) => prev.filter((p) => p.id !== id));
-    setActiveMarkerId((prev) => (prev === id ? null : prev));
   }, []);
 
   const clearResults = useCallback(() => {
     markersRef.current.forEach((marker) => marker.setMap(null));
     markersRef.current.clear();
-    listItemRefs.current.clear();
     setPlaces([]);
-    setActiveMarkerId(null);
     setStatusMessage(hasPolygon ? "Results cleared. Enter a new search query." : "Draw a polygon on the map to define your search area");
   }, [hasPolygon]);
 
@@ -278,19 +275,14 @@ function App() {
                 title: place.name,
               });
 
-              marker.addListener("click", () => {
-                setActiveMarkerId(place.id);
-                // Scroll list item into view
-                const el = listItemRefs.current.get(place.id);
-                el?.scrollIntoView({ behavior: "smooth", block: "center" });
-              });
-
               markersRef.current.set(place.id, marker);
             });
 
-            // Append to existing places
+            // Append to existing places, guard against any concurrent duplicates
             setPlaces((prev) => {
-              const updated = [...prev, ...valid];
+              const seenIds = new Set(prev.map((p) => p.id));
+              const deduped = valid.filter((p) => !seenIds.has(p.id));
+              const updated = [...prev, ...deduped];
               setStatusMessage(`Found ${updated.length} total places.`);
               return updated;
             });
@@ -396,132 +388,171 @@ function App() {
 
   return (
     <>
-      <div className="sidebar">
-        <div className="sidebar-header">
-          <h1>Places Finder</h1>
+      {/* Sidebar */}
+      <div className="w-[400px] bg-white shadow-[2px_0_10px_rgba(0,0,0,0.1)] flex flex-col z-10">
+
+        {/* Header: location + search */}
+        <div className="p-5 border-b border-gray-200">
+          <h1 className="text-2xl font-semibold text-gray-800 mb-3">Places Finder</h1>
 
           {/* Location search — pans the map */}
-          <div className="location-search-wrap">
-            <input
+          <div className="mb-2">
+            <Input
               ref={locationInputRef}
               type="text"
-              className="search-input location-input"
               placeholder="Go to location..."
+              className="bg-blue-50 border-blue-200 focus-visible:bg-white"
             />
           </div>
 
           {/* Polygon search query */}
-          <div className="search-controls">
-            <input
+          <div className="flex flex-col gap-2.5">
+            <Input
               type="text"
-              className="search-input"
               placeholder="Search within polygon (e.g. cafes)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && searchPlaces()}
             />
-            <div className="button-row">
-              <button
-                className="btn btn-primary"
+            <div className="flex gap-2">
+              <Button
+                className="flex-1"
                 onClick={searchPlaces}
                 disabled={!hasPolygon || !searchQuery.trim() || isSearching}
               >
                 {isSearching ? "Searching..." : "Search"}
-              </button>
-              <button className="btn btn-secondary" onClick={clearResults} disabled={places.length === 0}>
+              </Button>
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={clearResults}
+                disabled={places.length === 0}
+              >
                 Clear All
-              </button>
+              </Button>
             </div>
           </div>
         </div>
 
-        <div className="drawing-controls">
-          <label>Polygon:</label>
-          <button className={`btn btn-draw ${isDrawing ? "active" : ""}`} onClick={toggleDrawing}>
+        {/* Drawing controls */}
+        <div className="px-5 py-3 border-b border-gray-200 flex items-center gap-2.5">
+          <span className="text-sm text-gray-500">Polygon:</span>
+          <Button
+            variant={isDrawing ? "default" : "outline"}
+            size="sm"
+            onClick={toggleDrawing}
+          >
             {isDrawing ? "Cancel" : "Draw"}
-          </button>
+          </Button>
           {hasPolygon && (
-            <button className="btn btn-danger btn-draw" onClick={clearPolygon}>
+            <Button variant="destructive" size="sm" onClick={clearPolygon}>
               Remove
-            </button>
+            </Button>
           )}
         </div>
 
-        <div className="status-bar">{statusMessage}</div>
+        {/* Status bar */}
+        <div className="px-5 py-2.5 bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
+          {statusMessage}
+        </div>
 
-        <div className="results-container">
+        {/* Results */}
+        <div className="flex-1 overflow-y-auto p-4">
           {places.length > 0 ? (
             <>
-              <div className="results-header">
-                <h2>Results</h2>
-                <span className="results-count">{places.length} places</span>
+              <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200">
+                <h2 className="text-base font-semibold text-gray-800">Results</h2>
+                <span className="text-xs text-gray-500">{places.length} places</span>
               </div>
-              <div className="button-row" style={{ marginBottom: 15 }}>
-                <button className="btn btn-success" onClick={downloadCSV}>
+              <div className="mb-4">
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white w-full"
+                  onClick={downloadCSV}
+                >
                   Download CSV
-                </button>
+                </Button>
               </div>
-              <div className="results-list">
+              <div className="flex flex-col gap-3">
                 {places.map((place) => (
-                  <div
+                  <Card
                     key={place.id}
-                    ref={(el) => {
-                      if (el) listItemRefs.current.set(place.id, el);
-                      else listItemRefs.current.delete(place.id);
-                    }}
-                    className={`place-card ${activeMarkerId === place.id ? "place-card--active" : ""}`}
+                    className="p-3 gap-0 rounded-lg cursor-default"
                     onMouseEnter={() => handleCardMouseEnter(place.id)}
                     onMouseLeave={() => handleCardMouseLeave(place.id)}
                   >
-                    <div className="place-card-header">
+                    <div className="flex gap-3">
                       {place.photoUrl ? (
-                        <img src={place.photoUrl} alt={place.name} className="place-image" />
+                        <img
+                          src={place.photoUrl}
+                          alt={place.name}
+                          className="w-[60px] h-[60px] rounded-lg object-cover shrink-0"
+                        />
                       ) : (
-                        <div className="place-image-placeholder">No image</div>
-                      )}
-                      <div className="place-info">
-                        <div className="place-name-row">
-                          <div className="place-name" title={place.name}>
-                            {place.name}
-                          </div>
-                          <button
-                            className="btn-remove"
-                            onClick={() => removePlace(place.id)}
-                            title="Remove"
-                          >
-                            ×
-                          </button>
+                        <div className="w-[60px] h-[60px] rounded-lg bg-gray-200 flex items-center justify-center text-gray-400 text-xs shrink-0">
+                          No image
                         </div>
-                        <div className="place-address" title={place.address}>
+                      )}
+                      <div className="flex-1 min-w-0 relative">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="absolute top-0 right-0 text-gray-300 hover:text-red-500 hover:bg-red-50 text-lg leading-none"
+                          onClick={() => removePlace(place.id)}
+                          title="Remove"
+                        >
+                          ×
+                        </Button>
+                        <div className="font-semibold text-sm text-gray-800 truncate pr-6 mb-1" title={place.name}>
+                          {place.name}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate mb-1.5" title={place.address}>
                           {place.address}
                         </div>
-                        <div className="place-meta">
-                          <span className="tag-search">{place.searchTerm}</span>
+                        <div className="flex flex-wrap gap-1.5 text-xs">
+                          <span className="bg-amber-100 text-amber-700 font-medium px-2 py-0.5 rounded">
+                            {place.searchTerm}
+                          </span>
                           {place.rating && (
-                            <span>★ {place.rating} ({place.userRatingsTotal})</span>
+                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                              ★ {place.rating} ({place.userRatingsTotal})
+                            </span>
                           )}
-                          {place.phone && <span>{place.phone}</span>}
+                          {place.phone && (
+                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                              {place.phone}
+                            </span>
+                          )}
                           {place.website && (
-                            <a href={place.website} target="_blank" rel="noopener noreferrer">
+                            <a
+                              href={place.website}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-green-100 text-green-700 px-2 py-0.5 rounded hover:bg-green-200 no-underline"
+                            >
                               Website
                             </a>
                           )}
                           {place.placeUrl && (
-                            <a href={place.placeUrl} target="_blank" rel="noopener noreferrer">
+                            <a
+                              href={place.placeUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-green-100 text-green-700 px-2 py-0.5 rounded hover:bg-green-200 no-underline"
+                            >
                               Maps
                             </a>
                           )}
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </Card>
                 ))}
               </div>
             </>
           ) : (
-            <div className="no-results">
-              <p>No results yet</p>
-              <div className="instructions">
+            <div className="text-center py-10 px-5 text-gray-500">
+              <p className="mb-2">No results yet</p>
+              <div className="text-xs text-gray-400 leading-relaxed">
                 <p>1. Use "Go to location" to navigate the map</p>
                 <p>2. Click "Draw" to draw a polygon search area</p>
                 <p>3. Type a query and click "Search"</p>
@@ -532,13 +563,14 @@ function App() {
         </div>
       </div>
 
-      <div className="map-container">
+      {/* Map */}
+      <div className="flex-1 relative">
         {!isLoaded && (
-          <div className="loading-overlay">
-            <div className="loading-spinner"></div>
+          <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-[100]">
+            <div className="loading-spinner" />
           </div>
         )}
-        <div id="map" ref={mapRef}></div>
+        <div id="map" ref={mapRef} />
       </div>
     </>
   );
