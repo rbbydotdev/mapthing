@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>My Cool Map</name>
+
+    <Placemark>
+      <name>Best Coffee</name>
+      <description>Open late. Great WiFi.</description>
+      <Point>
+        <coordinates>100.5018,13.7563,0</coordinates>
+      </Point>
+    </Placemark>
+
+  </Document>
+</kml>

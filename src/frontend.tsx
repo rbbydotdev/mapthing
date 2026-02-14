@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Check, Link } from "lucide-react";
+import { Check, Link, MapPin } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
@@ -534,16 +534,15 @@ function MapScreen() {
                               Website
                             </a>
                           )}
-                          {place.placeUrl && (
-                            <a
-                              href={place.placeUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-green-100 text-green-700 px-2 py-0.5 rounded hover:bg-green-200 no-underline"
-                            >
-                              Maps
-                            </a>
-                          )}
+                          <a
+                            href={`https://www.google.com/maps?q=${place.lat},${place.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-green-100 text-green-700 px-2 py-0.5 rounded hover:bg-green-200 no-underline inline-flex items-center gap-1"
+                          >
+                            <MapPin size={10} />
+                            Maps
+                          </a>
                         </div>
                       </div>
                     </div>
